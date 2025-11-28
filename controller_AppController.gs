@@ -23,8 +23,41 @@ const obtenerKpisController = () => BonosService.obtenerKpis();
  */
 function obtenerRegistrosController() {
   const registros = BonosService.obtenerRegistros();
-  // Usa un operador ternario para concisión y seguridad.
   return Array.isArray(registros) ? registros : [];
+}
+
+// ===============================================
+// CONTROLLER - LÓGICA DE REPORTES INDIVIDUALES (NUEVO)
+// ===============================================
+
+/**
+ * Controlador principal para generar el reporte HTML.
+ * Llama al Service para calcular los datos del reporte y renderizar el HTML.
+ * @param {number} idAgente ID del agente.
+ * @param {string} fechaInicio Fecha de inicio del periodo (opcional).
+ * @param {string} fechaFin Fecha de fin del periodo (opcional).
+ * @returns {string} El HTML del reporte.
+ */
+function generarReporteIndividualController(idAgente, fechaInicio, fechaFin) {
+  try {
+    // 1. Obtener los datos procesados del Service
+    const reporteData = BonosService.generarReporteIndividual(
+      Number(idAgente), 
+      fechaInicio || '', 
+      fechaFin || ''
+    );
+
+    // 2. Renderizar el objeto de datos a un string HTML
+    const reporteHTML = BonosService.renderizarReporteHTML(reporteData);
+    
+    Logger.log(`ÉXITO: Reporte para Agente ${idAgente} generado.`);
+    return reporteHTML;
+
+  } catch (e) {
+    Logger.log(`Error en generarReporteIndividualController: ${e.message} | Stack: ${e.stack}`);
+    // Lanza un error amigable al cliente.
+    throw new Error("No se pudo generar el reporte. Verifique el ID o el rango de fechas.");
+  }
 }
 
 // ===============================================
@@ -41,9 +74,7 @@ function eliminarBonoController(registroId) {
     BonosService.eliminarRegistro(registroId);
     return `Bono para ${registroId} eliminado correctamente.`;
   } catch (e) {
-    // Loguea el error interno completo.
     Logger.log(`Error en eliminarBonoController: ${e.message} | Stack: ${e.stack}`);
-    // Lanza un error amigable al cliente.
     throw new Error(`No se pudo eliminar el bono: ${e.message}`);
   }
 }
@@ -60,12 +91,10 @@ function obtenerRegistroParaEdicionController(registroId) {
   }
 
   try {
-    // El Service ya lanza un error si el registro no se encuentra, simplificando este bloque.
     const registro = BonosService.getRegistroPorId(registroId);
     Logger.log(`ÉXITO: Registro para ID ${registroId} encontrado.`);
     return registro;
   } catch (e) {
-    // Captura y relanza el error.
     Logger.log(`¡ERROR FATAL EN LA BÚSQUEDA! Mensaje: ${e.message} | Stack: ${e.stack}`);
     throw new Error(`Fallo en el servidor al buscar el registro: ${e.message}`);
   }
@@ -83,12 +112,10 @@ function actualizarRegistroController(data) {
   }
 
   try {
-    // Delega la lógica de negocio (recalcular y guardar) al Service.
     const mensaje = BonosService.actualizarRegistro(data);
     Logger.log(`ÉXITO: Registro ${data.registroId} actualizado.`);
     return mensaje;
   } catch (e) {
-    // Captura y relanza el error.
     Logger.log(`¡ERROR FATAL EN LA ACTUALIZACIÓN! Mensaje: ${e.message} | Stack: ${e.stack}`);
     throw new Error(`Fallo al actualizar el registro: ${e.message}`);
   }
