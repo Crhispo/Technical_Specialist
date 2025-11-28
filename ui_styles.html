@@ -1,0 +1,133 @@
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+  
+  /* Esquema de color DARK MODE */
+  :root {
+    --color-bg: #0f172a;               /* Fondo de la aplicación (Slate 900) */
+    --color-surface: #1e293b;          /* Fondo de tarjetas, aside (Slate 800) */
+    --color-input-bg: #0b1220;         /* Fondo de inputs (más oscuro) */
+    --color-text: #ffffff;             /* Texto principal */
+    --color-text-muted: #cbd5e1;       /* Texto secundario/labels (Slate 300) */
+    --color-border: #334155;           /* Bordes y divisores (Slate 700) */
+    --color-primary: #3b82f6;          /* Azul corporativo (Blue 500) */
+    --color-primary-hover: #2563eb;    /* Hover azul (Blue 600) */
+  }
+
+  /* Corrección: Asegura que el body use el tema definido */
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  /* ============================================== */
+  /* COMPONENTES DE FORMULARIO (Labels & Inputs)    */
+  /* ============================================== */
+
+  /* Labels */
+  .form-label {
+    display: block;
+    color: var(--color-text-muted);
+    margin-bottom: 0.25rem; /* 4px */
+    font-size: 0.9rem;
+  }
+
+  /* Inputs y Selects */
+  .form-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem; /* 8px 12px */
+    border-radius: 0.375rem; /* 6px */
+    background: var(--color-input-bg);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    outline: none;
+    transition: border 0.2s, box-shadow 0.2s;
+  }
+
+  .form-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.4);
+  }
+
+  /* ============================================== */
+  /* BOTONES (Primario)                             */
+  /* ============================================== */
+
+  .btn-primary {
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background: var(--color-primary);
+    color: white;
+    font-weight: 600;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s, opacity 0.2s;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+  }
+  
+  /* Estado Desactivado */
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* ============================================== */
+  /* COMPONENTES KPI (Tarjetas)                     */
+  /* ============================================== */
+  
+  .kpi-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* Sombra más oscura */
+  }
+
+  .kpi-label {
+    color: var(--color-text-muted);
+    font-size: 0.8rem; /* Ligeramente más pequeño */
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+
+  .kpi-value {
+    font-size: 1.8rem; /* Ligeramente más grande */
+    font-weight: 700;
+  }
+  
+  /* ============================================== */
+  /* TABLAS (Optimización y Estilo)                 */
+  /* ============================================== */
+  
+  /* Zebra + Hover */
+  #tablaBonos tr:nth-child(even) {
+    background: rgba(255,255,255,0.02);
+  }
+
+  #tablaBonos tr:hover {
+    background: rgba(255,255,255,0.05);
+  }
+  
+  /* Celdas - Ajustamos padding y eliminamos el borde manual interno (usamos divide-y en el HTML) */
+  #tablaBonos td {
+    padding: 0.5rem 0.75rem;
+    vertical-align: middle;
+    white-space: nowrap;
+    /* !Importante: Eliminar el borde manual si se usa 'divide-y' en el HTML */
+    /* border: 1px solid var(--color-border); */ 
+  }
+
+  /* Celdas que sí deben romper texto (ej. Correo) */
+  #tablaBonos td.break {
+    white-space: normal;
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+</style>
