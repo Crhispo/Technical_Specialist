@@ -1,0 +1,45 @@
+<!-- ===================================================== -->
+<!-- SECCIÓN DE FILTROS                                    -->
+<!-- Card con superficie + bordes del sistema              -->
+<!-- ===================================================== -->
+<section class="bg-[var(--color-surface)] p-5 rounded-lg shadow-sm border border-[var(--color-border)] mb-6">
+  <h3 class="text-xl font-bold mb-4 text-[var(--color-text)]">
+    📄 Generar Reporte Individual
+  </h3>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+    <div>
+      <label for="reporteIdAgente" class="form-label">ID del Agente</label>
+      <input
+                type="number"
+                id="reporteIdAgente"
+                class="form-input"
+                placeholder="Ej: 1001">
+    </div>
+
+    <div>
+      <label for="reporteFechaInicio" class="form-label">Fecha Inicio</label>
+      <input type="date" id="reporteFechaInicio" class="form-input" />
+    </div>
+
+    <div>
+      <label for="reporteFechaFin" class="form-label">Fecha Fin</label>
+      <input
+                type="date"
+                id="reporteFechaFin"
+                class="form-input">
+    </div>
+
+    <div class="flex items-end">
+      <button
+                id="btnGenerarReporte"
+                class="btn-primary w-full"
+                type="button">
+                Generar Reporte
+            </button>
+    </div>
+  </div>
+</section>
+
+<div id="contenedorReporte">
+</div>
