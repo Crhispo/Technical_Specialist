@@ -1,0 +1,555 @@
+<script>
+  // ===============================================
+// I. CONFIGURACIÓN Y VARIABLES GLOBALES
+// ===============================================
+
+let registroSiendoEditado = null; 
+let registroPendienteEliminar = null; 
+const ORIGINAL_BTN_TEXT = "Guardar y Calcular Bono"; 
+
+// Elementos del DOM usados frecuentemente:
+const form = document.getElementById("agentForm");
+const saveBtn = document.getElementById("saveBtn");
+const modalGuardar = document.getElementById("modalConfirm");
+const modalEdicion = document.getElementById('modalEdicion');
+
+
+// ===============================================
+// II. UTILITIES (Funciones de Soporte y Validación)
+// ===============================================
+
+/**
+ * Mantiene .apply() para la estabilidad de google.script.run (ES5-compatible).
+ */
+const sendGoogleScriptRequest = (functionName, args, successHandler, failureHandler) => {
+    let runner = google.script.run
+        .withSuccessHandler(successHandler)
+        .withFailureHandler(err => {
+            console.error(`Fallo en ${functionName}:`, err);
+            failureHandler(err); 
+        });
+
+    const controllerFunction = runner[functionName];
+
+    if (!controllerFunction || typeof controllerFunction !== 'function') {
+        console.error(`Error: La función del servidor '${functionName}' no está definida.`);
+        failureHandler(new Error(`Función '${functionName}' no disponible o mal definida.`));
+        return;
+    }
+    
+    const argsArray = Array.isArray(args) ? args : [];
+    controllerFunction.apply(runner, argsArray);
+};
+
+/**
+ * Formatea un número a moneda (COP - Pesos Colombianos).
+ */
+const formatCurrency = (number) => {
+    const num = Number(number); 
+    if (isNaN(num)) return '$ 0';
+    return new Intl.NumberFormat('es-CO', {
+        style: 'currency', 
+        currency: 'COP', 
+        maximumFractionDigits: 0
+    }).format(num);
+};
+
+/**
+ * Convierte un ISO string de fecha a formato local.
+ */
+const formatTableDate = (isoDateString) => {
+    try {
+        const dateObj = new Date(isoDateString);
+        if (!isNaN(dateObj.getTime())) {
+            return dateObj.toLocaleString('es-CO');
+        }
+        return 'N/A';
+    } catch (e) {
+        return 'N/A';
+    }
+}
+
+/**
+ * Muestra mensajes de estado y error al usuario.
+ */
+const showMessage = (msg, isError = false, color = null) => {
+    const el = document.getElementById("resp");
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = color || (isError ? "crimson" : "green");
+};
+
+/**
+ * Valida y recolecta datos del formulario PRINCIPAL.
+ */
+const getFormData = () => {
+    const data = {
+        id: document.getElementById("idAgente") ? document.getElementById("idAgente").value : null,
+        nombre: document.getElementById("nombre") ? document.getElementById("nombre").value : null,
+        correo: document.getElementById("correo") ? document.getElementById("correo").value : null,
+        ventas: document.getElementById("ventas") ? document.getElementById("ventas").value : null,
+        calidad: document.getElementById("calidad") ? document.getElementById("calidad").value : null,
+        ausentismo: document.getElementById("ausentismo") ? document.getElementById("ausentismo").value : null
+    };
+
+    // Validación simplificada
+    const error = validateForm(data); 
+    if (error) {
+        showMessage(error, true);
+        return null;
+    }
+
+    return {
+        id: Number(data.id),
+        nombre: data.nombre.trim(),
+        correo: data.correo.trim(),
+        ventas: Number(data.ventas),
+        calidad: Number(data.calidad),
+        ausentismo: Number(data.ausentismo)
+    };
+}
+
+/**
+ * Valida el formato de los campos del formulario.
+ */
+const validateForm = (data) => {
+    // Validación de campos no nulos
+    if (!data.id || !data.nombre || !data.correo || !data.ventas || !data.calidad || !data.ausentismo) {
+        return "Todos los campos son obligatorios.";
+    }
+
+    // Validación numérica
+    const idAgente = Number(data.id);
+    const ventas = Number(data.ventas);
+    const calidad = Number(data.calidad);
+    const ausentismo = Number(data.ausentismo);
+    
+    if (!Number.isInteger(idAgente) || isNaN(ventas) || isNaN(calidad) || isNaN(ausentismo)) {
+        return "ID y métricas (Ventas, Calidad, Ausentismo) deben ser números válidos.";
+    }
+
+    // Validación de rangos
+    if (ventas < 0) return "Ventas debe ser un número positivo.";
+    if (calidad < 0 || calidad > 100) return "Calidad debe estar entre 0 y 100.";
+    if (ausentismo < 0 || ausentismo > 100) return "Ausentismo debe estar entre 0 y 100.";
+
+    return null;
+};
+
+/**
+ * Recolecta y valida datos del formulario de EDICIÓN.
+ */
+const getEditData = () => {
+    const dataActualizada = {
+        registroId: document.getElementById('registroIdEdicion') ? document.getElementById('registroIdEdicion').value : null, 
+        ventas: document.getElementById('ventasEdicion') ? document.getElementById('ventasEdicion').value : null,
+        calidad: document.getElementById('calidadEdicion') ? document.getElementById('calidadEdicion').value : null,
+        ausentismo: document.getElementById('ausentismoEdicion') ? document.getElementById('ausentismoEdicion').value : null
+    };
+    
+    if (!dataActualizada.registroId || isNaN(Number(dataActualizada.ventas)) || isNaN(Number(dataActualizada.calidad)) || isNaN(Number(dataActualizada.ausentismo))) {
+        showMessage("Error de validación en los datos de edición. Revise los campos.", true);
+        return null;
+    }
+
+    return {
+        registroId: dataActualizada.registroId,
+        ventas: Number(dataActualizada.ventas),
+        calidad: Number(dataActualizada.calidad),
+        ausentismo: Number(dataActualizada.ausentismo)
+    };
+}
+
+
+// ===============================================
+// III. KPI LOGIC (Carga de Tarjetas)
+// ===============================================
+
+/**
+ * Llama al servidor para obtener las métricas agregadas y las pinta.
+ */
+const cargarKpis = () => {
+    const successHandler = kpis => {
+        const kpiAgentes = document.getElementById("kpiAgentes");
+        if(kpiAgentes) kpiAgentes.textContent = kpis.agentesRegistrados || "0";
+        
+        const kpiBonoPromedio = document.getElementById("kpiBonoPromedio");
+        if(kpiBonoPromedio) kpiBonoPromedio.textContent = formatCurrency(kpis.promedioBono || 0);
+        
+        const kpiCalidad = document.getElementById("kpiCalidad");
+        if(kpiCalidad) kpiCalidad.textContent = (kpis.promedioCalidad || 0).toFixed(1) + "%";
+    };
+
+    const errorHandler = err => {
+        console.error("Error al cargar KPIs:", err);
+        showMessage("Error al cargar KPIs.", true);
+        
+        const errorMsg = "Error";
+        const kpiAgentes = document.getElementById("kpiAgentes");
+        if(kpiAgentes) kpiAgentes.textContent = errorMsg;
+        const kpiBonoPromedio = document.getElementById("kpiBonoPromedio");
+        if(kpiBonoPromedio) kpiBonoPromedio.textContent = "$ " + errorMsg;
+        const kpiCalidad = document.getElementById("kpiCalidad");
+        if(kpiCalidad) kpiCalidad.textContent = errorMsg;
+    };
+
+    sendGoogleScriptRequest('obtenerKpisController', [], successHandler, errorHandler);
+};
+
+
+// ===============================================
+// IV. TABLE & FILTER LOGIC
+// ===============================================
+
+/**
+ * Pinta los datos de los registros de bonos en la tabla HTML.
+ */
+const renderizarTabla = (datos) => {
+    const tbody = document.getElementById('tablaBonos');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    const dataArray = Array.isArray(datos) ? datos : [];
+
+    if (dataArray.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-[var(--color-text-muted)]">No hay registros para mostrar.</td></tr>';
+        return;
+    }
+
+    const rowsHtml = dataArray.map(agente => {
+        const ventas = Number(agente.ventas) || 0;
+        const calidad = Number(agente.calidad) || 0;
+        const ausentismo = Number(agente.ausentismo) || 0;
+        const totalBono = Number(agente.totalBono) || 0; 
+        
+        // La clave para la edición/eliminación
+        const registroUnicoId = `${agente.id}_${agente.fecha}`; 
+        
+        const bonoFormateado = formatCurrency(totalBono);
+        const fechaFormateada = formatTableDate(agente.fecha); 
+
+        const ausentismoClase = ausentismo > 5 ? 'text-red-500 font-semibold' : '';
+        
+        return `
+            <tr class="divide-x divide-[var(--color-border)]" data-id="${registroUnicoId}">
+                <td class="px-4 py-2 text-center">${agente.id || 'N/A'}</td>
+                <td class="px-4 py-2 font-medium">${agente.nombre || 'N/A'}</td>
+                <td class="px-4 py-2 text-sm text-[var(--color-text-muted)] break-all">${agente.correo || 'N/A'}</td>
+                <td class="px-4 py-2 text-right">${ventas}</td>
+                <td class="px-4 py-2 text-right">${calidad}%</td>
+                <td class="px-4 py-2 text-right ${ausentismoClase}">${ausentismo}%</td>
+                <td class="px-4 py-2 text-right font-bold text-green-400">${bonoFormateado}</td>
+                <td class="px-4 py-2 text-sm text-[var(--color-text-muted)]">${fechaFormateada}</td>
+
+                <td class="px-4 py-2 text-center whitespace-nowrap">
+                    <button 
+                        class="text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] mr-2" 
+                        onclick="iniciarEdicion('${registroUnicoId}')" 
+                        title="Editar Métricas">
+                        ✏️
+                    </button>
+                    <button 
+                        class="text-red-500 hover:text-red-400" 
+                        onclick="confirmarEliminarBono('${registroUnicoId}')" 
+                        title="Eliminar solo este Bono">
+                        🗑️
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.innerHTML = rowsHtml;
+};
+
+/**
+ * Llama al servidor para obtener los datos de la tabla, aplicando filtros.
+ * @param {string} filtroIdNombre Filtro de ID o Nombre.
+ * @param {string} filtroMes Mes de registro (string numérico).
+ */
+const cargarHistoricoBonos = (filtroIdNombre, filtroMes) => {
+    const tbody = document.getElementById('tablaBonos');
+    const btnFiltrar = document.getElementById('btnFiltrar');
+
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-[var(--color-text-muted)]">Cargando histórico de bonos...</td></tr>';
+    }
+    if (btnFiltrar) btnFiltrar.disabled = true;
+
+    const successHandler = datos => {
+        const dataArray = Array.isArray(datos) ? datos : [];
+        renderizarTabla(dataArray); 
+        if (btnFiltrar) btnFiltrar.disabled = false;
+    };
+
+    const errorHandler = error => {
+        if (tbody) {
+            tbody.innerHTML = `<tr class="bg-red-900"><td colspan="9" class="text-center py-4 text-white">Error al cargar la tabla: ${error.message || error}</td></tr>`;
+        }
+        if (btnFiltrar) btnFiltrar.disabled = false;
+        showMessage("Error al cargar histórico.", true);
+    };
+
+    // Llama al controlador con los argumentos de filtrado (pueden ser vacíos)
+    sendGoogleScriptRequest('obtenerRegistrosController', [filtroIdNombre, filtroMes], successHandler, errorHandler);
+};
+
+const handleFilterClick = () => {
+    // Recoge los valores de los filtros
+    const filtroID = document.getElementById('filtroID') ? document.getElementById('filtroID').value.trim() : '';
+    const filtroMes = document.getElementById('filtroMes') ? document.getElementById('filtroMes').value.trim() : '';
+
+    // Llama a la función de carga con los filtros
+    cargarHistoricoBonos(filtroID, filtroMes); 
+};
+
+
+// ===============================================
+// V. ACCIONES DE TABLA (Editar y Eliminar)
+// ===============================================
+
+const cerrarModalEdicion = () => {
+    if (modalEdicion) modalEdicion.classList.add('hidden');
+    const formEdicion = document.getElementById('formEdicion');
+    if (formEdicion) formEdicion.reset();
+    registroSiendoEditado = null;
+    showMessage("", false); 
+}
+
+function iniciarEdicion(registroId) {
+    showMessage("Cargando datos para edición...", false, 'var(--color-primary)'); 
+    
+    registroSiendoEditado = registroId; 
+    
+    const successHandler = agente => {
+        if (agente) {
+            document.getElementById("registroIdEdicion").value = registroId; 
+            document.getElementById("idAgenteEdicion").value = agente.id;
+            document.getElementById("nombreEdicion").value = agente.nombre;
+            document.getElementById("ventasEdicion").value = agente.ventas;
+            document.getElementById("calidadEdicion").value = agente.calidad;
+            document.getElementById("ausentismoEdicion").value = agente.ausentismo;
+            
+            if (modalEdicion) modalEdicion.classList.remove('hidden');
+            
+            showMessage("Modo Edición: Modifique las métricas y guarde los cambios.", false, 'var(--color-primary)');
+        } else {
+            showMessage("Error: Registro no encontrado en el servidor.", true);
+        }
+    };
+
+    const errorHandler = err => {
+        showMessage("Error al obtener datos para edición: " + (err ? err.message : 'Error desconocido'), true);
+    };
+
+    sendGoogleScriptRequest('obtenerRegistroParaEdicionController', [registroId], successHandler, errorHandler);
+}
+
+const eliminarBono = (registroId) => {
+    showMessage("Eliminando bono...", false, 'var(--color-primary)'); 
+
+    const successHandler = res => {
+        showMessage(res, false); 
+        cargarHistoricoBonos('', ''); // Recarga sin filtros
+        cargarKpis();
+    };
+
+    const errorHandler = err => {
+        showMessage("Error al eliminar bono: " + (err ? err.message : 'Error desconocido'), true);
+    };
+
+    sendGoogleScriptRequest('eliminarBonoController', [registroId], successHandler, errorHandler);
+};
+
+function confirmarEliminarBono(registroId) {
+    registroPendienteEliminar = registroId; 
+    
+    const idSpan = document.getElementById('registroAEliminarId');
+    if (idSpan) idSpan.textContent = registroId;
+    
+    const modal = document.getElementById('modalEliminarBono');
+    if (modal) modal.classList.remove('hidden');
+};
+
+const cerrarModalEliminar = () => {
+    const modal = document.getElementById('modalEliminarBono');
+    if (modal) modal.classList.add('hidden');
+    registroPendienteEliminar = null;
+};
+
+
+// ===============================================
+// VI. LÓGICA DE REPORTES INDIVIDUALES (NUEVO)
+// ===============================================
+
+const handleGenerarReporte = () => {
+    const idAgenteInput = document.getElementById('reporteIdAgente');
+    const fechaInicio = document.getElementById('reporteFechaInicio') ? document.getElementById('reporteFechaInicio').value : '';
+    const fechaFin = document.getElementById('reporteFechaFin') ? document.getElementById('reporteFechaFin').value : '';
+    const contenedor = document.getElementById('contenedorReporte');
+
+    // 1. Validación y conversión a número (Punto crítico corregido)
+    const idAgente = idAgenteInput ? Number(idAgenteInput.value) : 0;
+    
+    if (isNaN(idAgente) || idAgente <= 0) {
+        showMessage("Por favor, ingrese un ID de Agente numérico válido.", true);
+        contenedor.innerHTML = '';
+        return;
+    }
+    
+    showMessage("Generando reporte individual...", false, 'var(--color-primary)');
+    contenedor.innerHTML = '<p class="text-center py-4 text-gray-500">Procesando datos...</p>';
+
+    const successHandler = reporteHTML => {
+        showMessage("Reporte generado con éxito.", false);
+        contenedor.innerHTML = reporteHTML; // El servidor devuelve el HTML
+    };
+
+    const errorHandler = err => {
+        showMessage("Error al generar el reporte: " + (err ? err.message : 'Error desconocido'), true);
+        contenedor.innerHTML = '';
+    };
+
+    // 2. Llamada al servidor con el ID como número
+    sendGoogleScriptRequest(
+        'generarReporteIndividualController', 
+        [idAgente, fechaInicio, fechaFin], 
+        successHandler, 
+        errorHandler
+    );
+};
+
+
+// ===============================================
+// VII. EVENT HANDLERS & INITIALIZATION
+// ===============================================
+
+const handleGuardarEdicion = () => {
+    const dataActualizada = getEditData();
+    if (!dataActualizada) return;
+
+    showMessage("Actualizando registro...", false, 'var(--color-primary)');
+
+    const successHandler = res => {
+        showMessage(res, false);
+        cerrarModalEdicion(); 
+        cargarHistoricoBonos('', ''); 
+        cargarKpis(); 
+    };
+
+    const errorHandler = err => {
+        showMessage("Error al actualizar: " + (err ? err.message : 'Error desconocido'), true);
+    };
+
+    sendGoogleScriptRequest('actualizarRegistroController', [dataActualizada], successHandler, errorHandler);
+};
+
+const handleGuardarNuevo = (pendingData) => {
+    if (!pendingData) return;
+    
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Procesando...";
+    }
+
+    const successHandler = res => {
+        showMessage(res, false); 
+        if (form) form.reset();
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = ORIGINAL_BTN_TEXT;
+        }
+        
+        cargarKpis(); 
+        cargarHistoricoBonos('', ''); 
+    };
+
+    const errorHandler = err => {
+        showMessage("Error al guardar registro: " + (err ? err.message : 'Error desconocido'), true);
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = ORIGINAL_BTN_TEXT;
+        }
+    };
+
+    sendGoogleScriptRequest('guardarDatosController', [pendingData], successHandler, errorHandler);
+};
+
+/**
+ * Función autoejecutable para la inicialización y manejo de eventos.
+ */
+(() => {
+    
+    const btnCancel = document.getElementById("btnCancel");
+    const btnConfirm = document.getElementById("btnConfirm");
+    const btnFiltrar = document.getElementById("btnFiltrar");
+    const btnGenerarReporte = document.getElementById("btnGenerarReporte"); 
+
+    const btnGuardarEdicion = document.getElementById('btnGuardarEdicion');
+    const btnCancelarEdicion = document.getElementById('btnCancelarEdicion'); 
+    
+    const btnCancelarEliminar = document.getElementById('btnCancelarEliminar');
+    const btnConfirmarEliminar = document.getElementById('btnConfirmarEliminar');
+
+    let pendingData = null; 
+
+    const toggleModalGuardar = (show) => { 
+        if (modalGuardar) modalGuardar.classList.toggle("hidden", !show);
+    };
+
+    // 1. Evento del botón Guardar del Formulario Principal
+    if (saveBtn) { 
+        saveBtn.addEventListener("click", () => {
+            if (registroSiendoEditado !== null) {
+                showMessage("El formulario está en modo de edición. Por favor, cancele la edición para crear un nuevo registro.", true);
+                return;
+            }
+
+            const data = getFormData();
+            if (!data) return;
+
+            pendingData = data;
+            toggleModalGuardar(true); 
+        });
+    }
+
+    // 2. Botones del Modal de Guardado (Confirmar Creación)
+    if (btnCancel) { btnCancel.addEventListener("click", () => { toggleModalGuardar(false); }); }
+    if (btnConfirm) {
+        btnConfirm.addEventListener("click", () => {
+            toggleModalGuardar(false);
+            handleGuardarNuevo(pendingData);
+            pendingData = null; 
+        });
+    }
+    
+    // 3. Lógica de Modal para EDICIÓN
+    if (btnCancelarEdicion) { btnCancelarEdicion.addEventListener('click', cerrarModalEdicion); }
+    if (btnGuardarEdicion) { btnGuardarEdicion.addEventListener('click', handleGuardarEdicion); }
+
+    // 4. Lógica de Modal para ELIMINAR BONO
+    if (btnCancelarEliminar) { btnCancelarEliminar.addEventListener('click', cerrarModalEliminar); }
+    if (btnConfirmarEliminar) {
+        btnConfirmarEliminar.addEventListener('click', () => {
+            if (registroPendienteEliminar) {
+                eliminarBono(registroPendienteEliminar); 
+            }
+            cerrarModalEliminar();
+        });
+    }
+    
+    // 5. Botón de Filtro (Tabla Histórica)
+    if (btnFiltrar) { btnFiltrar.addEventListener("click", handleFilterClick); }
+
+    // 6. Botón de Reporte Individual (Implementación final)
+    if (btnGenerarReporte) { 
+        btnGenerarReporte.addEventListener("click", handleGenerarReporte); 
+    }
+    
+    // 7. Inicialización: Carga inicial de datos al cargar el DOM
+    document.addEventListener('DOMContentLoaded', () => {
+        cargarKpis(); 
+        cargarHistoricoBonos('', ''); // Carga inicial sin filtros
+    });
+})();
+</script>
