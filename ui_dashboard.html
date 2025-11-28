@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+
+  <?!= include('ui_styles'); ?>
+</head>
+
+<body class="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
+
+  <main class="w-full p-6"> <?!= include('ui_header'); ?>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <section class="lg:col-span-2 space-y-6">
+        
+        <?!= include('ui_kpis'); ?>
+        <?!= include('ui_filters'); ?>
+        <?!= include('ui_table_modal'); ?>
+
+      </section>
+
+      <aside class="lg:col-span-1 bg-[var(--color-surface)] p-5 rounded-lg shadow-xl border border-[var(--color-border)] h-fit">
+        <?!= include('ui_form_modal'); ?>
+      </aside>
+
+    </div>
+
+  </main>
+
+  <?!= include('ui_scripts'); ?>
+
+</body>
+
+</html>
