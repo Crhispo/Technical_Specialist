@@ -1,0 +1,140 @@
+<!-- ===================================================== -->
+<!-- TABLA HISTÓRICA DE BONOS                              -->
+<!-- surface + border del sistema                           -->
+<!-- ===================================================== -->
+
+<section class="bg-[var(--color-surface)] p-5 rounded-lg shadow-sm border border-[var(--color-border)]">
+
+  <h2 class="text-xl font-bold mb-4 text-[var(--color-primary)]">
+    📊 Histórico de Bonos
+  </h2>
+
+  <div class="overflow-x-auto rounded-lg border border-[var(--color-border)]">
+    <table class="min-w-full text-left divide-y divide-[var(--color-border)]">
+
+      <thead class="bg-[rgba(255,255,255,0.05)] text-[var(--color-text-muted)] text-sm uppercase tracking-wider">
+        <tr>
+          <th class="px-4 py-3">ID</th>
+          <th class="px-4 py-3">Nombre</th>
+          <th class="px-4 py-3">Correo</th>
+
+          <th class="px-4 py-3 text-right">Ventas</th>
+          <th class="px-4 py-3 text-right">Calidad %</th>
+          <th class="px-4 py-3 text-right">Ausentismo %</th>
+          <th class="px-4 py-3 text-right">Bono Total</th>
+
+          <th class="px-4 py-3">Fecha</th>
+          <th class="px-4 py-3 text-center">Acciones</th>
+        </tr>
+      </thead>
+
+      <tbody id="tablaBonos" class="divide-y divide-[var(--color-border)]">
+      </tbody>
+
+    </table>
+  </div>
+
+</section>
+
+<!-- ===================================================== -->
+<!-- MODAL DE EDICION                                 -->
+<!-- ===================================================== -->
+<div id="modalEdicion" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog"
+  aria-modal="true">
+  <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+
+    <div class="fixed inset-0 bg-black bg-opacity-70 transition-opacity" aria-hidden="true"></div>
+
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+    <div
+      class="inline-block align-bottom bg-[var(--color-surface)] rounded-xl text-left overflow-hidden shadow-2xl border border-[var(--color-border)] transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full text-[var(--color-text)]">
+
+      <form id="formEdicion">
+        <div class="px-4 pt-5 pb-4 sm:p-6 sm:pb-4 space-y-4">
+          <h3 class="text-xl leading-6 font-bold text-[var(--color-primary)]" id="modal-title">
+            ✏️ Editar Métricas de Bono
+          </h3>
+          <p class="text-sm text-[var(--color-text-muted)] mt-2">
+            Solo puede modificar las métricas: <b>Ventas</b>, <b>Calidad</b> y <b>Ausentismo</b>.
+          </p>
+
+          <div class="mt-4 space-y-4">
+
+            <input type="hidden" id="registroIdEdicion">
+
+            <div>
+              <label for="idAgenteEdicion" class="form-label">ID del Agente</label>
+              <input type="number" id="idAgenteEdicion" name="idAgenteEdicion" class="form-input bg-[var(--color-surface-hover)] cursor-not-allowed" readonly>
+            </div>
+
+            <div>
+              <label for="nombreEdicion" class="form-label">Nombre</label>
+              <input type="text" id="nombreEdicion" name="nombreEdicion" class="form-input bg-[var(--color-surface-hover)] cursor-not-allowed" readonly>
+            </div>
+
+            <div>
+              <label for="ventasEdicion" class="form-label">Ventas</label>
+              <input type="number" id="ventasEdicion" name="ventasEdicion" class="form-input" required>
+            </div>
+
+            <div>
+              <label for="calidadEdicion" class="form-label">Calidad %</label>
+              <input type="number" step="any" id="calidadEdicion" name="calidadEdicion" class="form-input" required>
+            </div>
+
+            <div>
+              <label for="ausentismoEdicion" class="form-label">Ausentismo %</label>
+              <input type="number" step="any" id="ausentismoEdicion" name="ausentismoEdicion" class="form-input" required>
+            </div>
+
+          </div>
+        </div>
+
+        <div
+          class="bg-[rgba(0,0,0,0.1)] border-t border-[var(--color-border)] px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse rounded-b-xl gap-3">
+
+          <button type="button" id="btnGuardarEdicion" class="btn-primary w-full sm:w-auto sm:ml-3">
+                    💾 Guardar Cambios
+          </button>
+
+          <button type="button" id="btnCancelarEdicion"
+                    class="mt-3 w-full inline-flex justify-center rounded-lg shadow-sm px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors sm:mt-0 sm:w-auto">
+                    Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================== -->
+<!-- MODAL DE ELIMINACION                                 -->
+<!-- ===================================================== -->
+<div id="modalEliminarBono" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+  role="dialog" aria-modal="true" aria-labelledby="modalEliminarTitle">
+
+  <div class="bg-[var(--color-surface)] p-6 rounded-xl shadow-2xl border border-[var(--color-border)] w-96 max-w-sm">
+    <h2 id="modalEliminarTitle" class="text-lg font-bold mb-3 text-red-500">⚠️ Confirmar Eliminación</h2>
+
+    <p class="text-[var(--color-text-muted)] mb-4">
+      ¿Estás seguro de que deseas eliminar este registro de bono?
+      <strong class="text-red-400">Esta acción no se puede deshacer</strong> y solo afecta al bono, no al agente.
+    </p>
+
+    <p class="text-[var(--color-text-muted)] text-sm mb-6">
+      Registro ID: <span id="registroAEliminarId" class="font-mono font-semibold text-[var(--color-text)]"></span>
+    </p>
+
+    <div class="flex justify-end gap-3">
+      <button id="btnCancelarEliminar"
+                    class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors">
+                Cancelar
+            </button>
+      <button id="btnConfirmarEliminar"
+                    class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors">
+                Eliminar Bono
+            </button>
+    </div>
+  </div>
+</div>
