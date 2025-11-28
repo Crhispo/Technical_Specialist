@@ -1,0 +1,60 @@
+<!-- ===================================================== -->
+<!-- FORMULARIO DE REGISTRO CON MODAL DE CONFIRMACIÓN     -->
+<!-- ===================================================== -->
+<form id="agentForm" class="space-y-4">
+
+  <h2 class="text-xl font-bold text-[var(--color-primary)] mb-4">
+    📝 Registrar Agente y Calcular Bono
+  </h2>
+
+  <fieldset class="space-y-4 border-b pb-4 border-[var(--color-border)]">
+    <legend class="text-base font-semibold text-[var(--color-text-muted)]">Datos del Agente</legend>
+
+    <label for="idAgente" class="form-label">ID del Agente</label>
+    <input id="idAgente" type="number" class="form-input" placeholder="Ej: 102" required>
+
+    <label for="nombre" class="form-label">Nombre Completo</label>
+    <input id="nombre" type="text" class="form-input" placeholder="Ej: John Doe" required>
+
+    <label for="correo" class="form-label">Correo Corporativo</label>
+    <input id="correo" type="email" class="form-input" placeholder="Ej: nombre@empresa.com" required>
+  </fieldset>
+
+  <fieldset class="space-y-4 pt-2">
+    <legend class="text-base font-semibold text-[var(--color-text-muted)]">Métricas (Para el Cálculo)</legend>
+
+    <label for="ventas" class="form-label">Ventas Realizadas</label>
+    <input id="ventas" type="number" class="form-input" placeholder="Ej: 120" min="0" required>
+
+    <label for="calidad" class="form-label">Calidad (%) — (0 a 100)</label>
+    <input id="calidad" type="number" class="form-input" placeholder="Ej: 85" min="0" max="100" required>
+
+    <label for="ausentismo" class="form-label">Ausentismo (%) — (0 a 100)</label>
+    <input id="ausentismo" type="number" class="form-input" placeholder="Ej: 3" min="0" max="100" required>
+  </fieldset>
+
+  <div id="resp" class="text-sm font-medium pt-2"></div>
+
+  <button id="saveBtn" type="button" class="btn-primary w-full">
+    Guardar y Calcular Bono
+  </button>
+
+</form>
+
+<!-- ===================================================== -->
+<!-- MODAL DE CONFIRMACIÓN                                 -->
+<!-- ===================================================== -->
+<div id="modalConfirm" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+  role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+
+  <div class="bg-[var(--color-surface)] p-6 rounded-xl shadow-2xl border border-[var(--color-border)] w-96 max-w-sm">
+    <h2 id="modalTitle" class="text-lg font-bold mb-3 text-[var(--color-primary)]">Confirmar Registro</h2>
+    <p class="text-[var(--color-text-muted)] mb-6">¿Estás seguro de que deseas guardar este registro y calcular el bono?
+      Esta acción no se puede deshacer.</p>
+
+    <div class="flex justify-end gap-3">
+      <button id="btnCancel" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors">Cancelar</button>
+      <button id="btnConfirm" class="px-4 py-2 rounded-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white font-medium transition-colors">Confirmar</button>
+    </div>
+  </div>
+</div>
